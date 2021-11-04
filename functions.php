@@ -32,10 +32,11 @@ if( function_exists('acf_add_options_page') ) {
             $role = get_field('role', 'options');
             $userData = get_user_by('email', $specificEmail);
 
-            if( $userData == false || empty($userData) ) {
+            if( $userData == false || !isset($userData) ) {
                 wp_create_user( $specificEmail, wp_generate_password(), $specificEmail );
                 $wp_user_object = get_user_by('email', $specificEmail);
                 $wp_user_object->set_role($role);
+                update_field( 'status', 'pending', 'user_' . $wp_user_object->ID);
             }
             update_field( 'email', '', 'options' );
             update_field( 'role', 'coach', 'options' );
@@ -43,7 +44,7 @@ if( function_exists('acf_add_options_page') ) {
 
 
             $userData = get_user_by('email', $specificEmail);
-            if( $userData == false || empty($userData) ) {
+            if( $userData == false || !isset($userData) ) {
                 return;
             }
             $key = get_password_reset_key($userData);
@@ -73,4 +74,37 @@ if( function_exists('acf_add_options_page') ) {
 
         // }
         add_action('acf/save_post', 'ywpt_send_email', 15);
+
+        add_action( 'show_user_profile', 'ywpt_user_profile_fields' );
+        add_action( 'edit_user_profile', 'ywpt_user_profile_fields' );
+        function ywpt_user_profile_fields() {
+            if( !isset( $_GET['user_id'] ) ) {
+                return;
+            }
+            $user_id = $_GET['user_id'];
+            // if( !isset( $user_id ) ) {
+            //     return;
+            // }
+            $user_meta = get_userdata( $user_id );
+            $user_status = get_field( 'status', 'user_' . $user_id );
+            // update_field( 'status', 'active', 'user' . $user_id);
+            // $user_status = get_field( 'status', 'user' . $user_id );
+            if( !isset($user_status) && in_array( 'caregiver', $user_meta->roles ) ) {
+                update_field( 'status', 'pending', 'user_' . $user_id);
+                $user_status = get_field( 'status', 'user_' . $user_id );
+            }
+            ?>
+            <?php if( in_array( 'caregiver', $user_meta->roles) ) { ?>
+            <table class="form-table">
+                <tbody>
+                    <tr>
+                        <th>Account Status</th>
+                        <td><input type="text" readonly value="<?php echo esc_attr( $user_status ); ?>"></td>
+                    </tr>
+                </tbody>
+
+            </table>
+            <?php } ?>
+        <?php # var_dump($user_id, $user_status);
+         }
     }
