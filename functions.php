@@ -36,7 +36,7 @@ if( function_exists('acf_add_options_page') ) {
                 wp_create_user( $specificEmail, wp_generate_password(), $specificEmail );
                 $wp_user_object = get_user_by('email', $specificEmail);
                 $wp_user_object->set_role($role);
-                update_field( 'status', 'pending', 'user_' . $wp_user_object->ID);
+                update_field( 'status', 'active', 'user_' . $wp_user_object->ID);
             }
             update_field( 'email', '', 'options' );
             update_field( 'role', 'coach', 'options' );
