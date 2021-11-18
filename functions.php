@@ -177,3 +177,56 @@ if( function_exists('acf_add_options_page') ) {
         </style>
     <?php }
     add_action( 'login_enqueue_scripts', 'my_login_logo' );
+
+    function ywpt_courses_cpt() {
+        $ywpt_course_args = [
+            'label' => 'Courses',
+            'description' => '',
+            'public' => true,
+            'show_in_rest' => true,
+            'menu_position' => 7,
+            'supports' => ['title', 'editor', 'thumbnail'],
+            'has_archive' => true,
+            'can_export' => false,
+            'delete_with_user' => false,
+        ];
+        register_post_type( 'course', $ywpt_course_args );
+    }
+    function ywpt_flush_rewrite() {
+        ywpt_courses_cpt();
+        flush_rewrite_rules();
+    }
+    // add_action( 'after_switch_theme', 'ywpt_flush_rewrite' );
+    // add_action( 'init', 'ywpt_courses_cpt' );
+
+
+    function ywpt_restrict_caregivers( $query ) {
+        if( !is_admin() && $query->is_main_query() && is_archive( 'course' ) ) {
+            $current_user = get_current_user_id();
+            // We want the current user
+            $current_user_meta = get_userdata( $current_user );
+            $user_roles = $current_user_meta->roles;
+            //check if this is a caregiver.
+            $user_status = get_field( 'status', 'user_' . $current_user );
+            if( in_array( 'caregiver', $user_roles ) ) {
+                $query->set( 'posts_per_page', 10 );
+                if( $user_status == 'active' ) {
+                    $meta_args = $query->get('meta_query');
+                    $meta_args = [
+                        [
+                        'key' => 'paused',
+                        'value' => 'unpaused',
+                        'compare' => '=',
+                        ]
+                    ];
+                    $query->set( 'meta_query', $meta_args );
+                    return $query;
+                }
+                return $query;
+            }
+            // $query->set('posts_per_page', 1);
+            // return $query;
+        }
+
+    }
+    add_action( 'pre_get_posts', 'ywpt_restrict_caregivers', 11 );
