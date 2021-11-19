@@ -161,7 +161,9 @@ if( function_exists('acf_add_options_page') ) {
 
 
 
-    function my_login_logo() { ?>
+    function my_login_logo() {
+        //TODO #1
+        ?>
         <style type="text/css">
             body.login {
                 background:  url(<?= get_bloginfo( 'url' ); ?>/wp-content/uploads/2021/11/AdobeStock_340923854-scaled.jpeg);
@@ -213,6 +215,7 @@ if( function_exists('acf_add_options_page') ) {
                 if( $user_status == 'active' ) {
                     $meta_args = $query->get('meta_query');
                     $meta_args = [
+                        'relation' => 'AND',
                         [
                         'key' => 'paused',
                         'value' => 'unpaused',
