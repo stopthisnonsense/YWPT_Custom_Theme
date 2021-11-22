@@ -11,5 +11,50 @@ License: GNU General Public License v2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 ======================================*/
 
-
 /*add your custom CSS below this line*/
+
+/* Card Styles */
+:root {
+	--grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.grid {
+	display: grid;
+}
+
+.grid--courses {
+	grid-template-columns: var(--grid-template-columns);
+	gap: 1rem;
+}
+
+.card {
+	position: relative;
+}
+
+.card--courses {
+	display: flex;
+	justify-content: flex-end;
+	align-items: flex-start;
+	flex-direction: column;
+	aspect-ratio: 1/1;
+}
+
+.card--paused {
+	opacity: 0.5;
+}
+/* TODO - make a cool transition */
+.card--courses .card__image {
+	position: absolute;
+	inset: 0;
+	height: 100%;
+	width: 100%;
+	object-fit: cover;
+	z-index: -1;
+}
+
+.card--courses .card__title {
+	background-color: rgba(250, 250, 250, 0.5);
+	display: inline-block;
+	padding: 1rem;
+	color: #191919;
+}
