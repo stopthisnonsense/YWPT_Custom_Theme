@@ -244,20 +244,15 @@ if( function_exists('acf_add_options_page') ) {
 
     $courses = pods('course', $params);
 	$returnCode = '<div class="grid grid--courses">';
-    $current_date = date('Y-m-d');
+    $current_date = date_create(date('Ymd'));
     $current_user = get_current_user_id();
     $current_user_meta = get_userdata( $current_user );
     // var_dump( $current_user_meta );
     $user_status = get_field( 'status', 'user_' . $current_user );
 
-    $register_date = date('Y-m-d', $current_user_meta->user_registered );
-    // var_dump( $register_date, $current_date, date_diff( $register_date, $current_date ) );
+    $register_date = date_create($current_user_meta->register_date);
     if ($courses->total() > 0)
 	{
-
-
-		//$registerdate = register date
-		//Need an array $releaseDates = array();
         while ($courses->fetch())
 		{
             $id = $courses->field('ID');
@@ -266,14 +261,20 @@ if( function_exists('acf_add_options_page') ) {
 			$title = $courses->display('post_title');
 			$embedCode = $courses->display('embed_code');
 			$interval = $courses->display('unlock_interval');
-            $interval = $interval . ' Days';
+            $interval =  date_interval_create_from_date_string($interval . ' days');
+            $interv_date = $register_date;
+            $interv_date = date_add($interv_date , $interval);
 			$prevCourse = $courses->display('previous_course');
             $postImage = '';
             $content = get_the_excerpt($id);
-            $release_date = $courses->field( 'release_date');
+            $release_date = $current_date;
+            if( !empty($courses->field( 'release_date'))) {
+                $release_date = date_create($courses->field( 'release_date'));
+            }
+            // var_dump($release_date);
 
             if( has_post_thumbnail( $id ) ) {
-                $postImage = get_the_post_thumbnail( $id, 'medium', [
+                $postImage = get_the_post_thumbnail( $id, 'large', [
                      'class' => 'card__image card__image--courses',
                      'height' => '',
                      'width' => '',
@@ -281,27 +282,10 @@ if( function_exists('acf_add_options_page') ) {
             }
             $url =  'href="' . get_the_permalink( $id ) . '"';
 
-            if( $user_status == 'paused' || strtotime($release_date) > strtotime($current_date) ) {
+            if( $user_status != 'active' || $release_date > $current_date ||  $interv_date >  $current_date  ) {
                 $url =  '';
                 $class .= ' card--paused';
             }
-
-
-
-            // var_dump( $releaseInterval );
-			/*$releaseDate = today's date?
-			if($interval == 0)
-			{
-				$releaseDate = registrationDate
-			}
-			else
-			{
-				$relseaseDate[] = new calculated date (last release date + intverl days)
-				$releaseDate = lasetCalculated release
-			}*/
-
-			//$calDate =  //TODO: 1 - Find out when user registerered 2 -on each iteration, calculat the release date
-			////Toggle anchor on and off based on being disabled
 
 			$returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
                 <div class="card__content card__content--courses">
