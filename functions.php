@@ -318,3 +318,20 @@ if( function_exists('acf_add_options_page') ) {
 }
 
 add_shortcode('course_list', 'course_list_shortcode');
+
+add_action('frm_before_destroy_entry', 'asu_delete_user_with_entry');
+
+function asu_delete_user_with_entry( $entry_id ) {
+    $form_id = 3;// Replace 10 with the ID of your form
+    $field_id = 18;//Replace 25 with the ID of your userID field
+    $entry = FrmEntry::getOne( $entry_id, true );
+    if ( $entry->form_id == $form_id ) {
+        if ( isset( $entry->metas[ $field_id ] ) && $entry->metas[ $field_id ] ) {
+            $user_id = $entry->metas[ $field_id ];
+            $user = new WP_User( $user_id );
+            if ( ! in_array( 'administrator', (array) $user->roles ) ) {
+                wp_delete_user( $user->ID );
+            }
+        }
+    }
+}
