@@ -243,58 +243,71 @@ if( function_exists('acf_add_options_page') ) {
     );
 
     $courses = pods('course', $params);
-	$returnCode = '<div class="grid grid--courses">';
+
     $current_date = date_create(date('Ymd'));
     $current_user = get_current_user_id();
     $current_user_meta = get_userdata( $current_user );
     // var_dump( $current_user_meta );
     $user_status = get_field( 'status', 'user_' . $current_user );
-
+    $user_roles = $current_user_meta->roles;
     $register_date = date_create($current_user_meta->register_date);
-    if ($courses->total() > 0)
-	{
-        while ($courses->fetch())
-		{
-            $id = $courses->field('ID');
-            $class = 'card card--courses';
-            $class = esc_attr( implode( ' ', get_post_class( $class, $id ) ) );
-			$title = $courses->display('post_title');
-			$embedCode = $courses->display('embed_code');
-			$interval = $courses->display('unlock_interval');
-            $interval =  date_interval_create_from_date_string($interval . ' days');
-            $interv_date = $register_date;
-            $interv_date = date_add($interv_date , $interval);
-			$prevCourse = $courses->display('previous_course');
-            $postImage = '';
-            $content = get_the_excerpt($id);
-            $release_date = $current_date;
-            if( !empty($courses->field( 'release_date'))) {
-                $release_date = date_create($courses->field( 'release_date'));
-            }
-            // var_dump($release_date);
 
-            if( has_post_thumbnail( $id ) ) {
-                $postImage = get_the_post_thumbnail( $id, 'large', [
-                     'class' => 'card__image card__image--courses',
-                     'height' => '',
-                     'width' => '',
-                 ] );
-            }
-            $url =  'href="' . get_the_permalink( $id ) . '"';
+    $returnCode = '<div class="grid grid--courses">';
 
-            if( $user_status != 'active' || $release_date > $current_date ||  $interv_date >  $current_date  ) {
-                $url =  '';
-                $class .= ' card--paused';
-            }
+        if ($courses->total() > 0)
+        {
+            $release_dates = [];
+            while ($courses->fetch())
+            {
+                $id = $courses->field('ID');
+                $class = 'card card--courses';
+                $class = esc_attr( implode( ' ', get_post_class( $class, $id ) ) );
+                $title = $courses->display('post_title');
+                $embedCode = $courses->display('embed_code');
+                $interval = $courses->display('unlock_interval');
+                $interval =  date_interval_create_from_date_string($interval . ' days');
+                $interv_date = $register_date;
+                $interv_date = date_add($interv_date , $interval);
+                $prev_course = $courses->field('previous_course');
+                $postImage = '';
+                $content = get_the_excerpt($id);
+                $release_date = $current_date;
 
-			$returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
-                <div class="card__content card__content--courses">
-                    <h2 class="card__title card__title--courses">'.$title.'</h2>
+                if( !empty( $courses->field( 'release_date' ) ) ) {
+                    $release_date = date_create( $courses->field( 'release_date' ) );
+                } else {
+                    $release_date = $interv_date;
+                }
+                $release_dates[] = $release_date;
+
+                if( has_post_thumbnail( $id ) ) {
+                    $postImage = get_the_post_thumbnail( $id, 'large', [
+                        'class' => 'card__image card__image--courses',
+                        'height' => '',
+                        'width' => '',
+                    ] );
+                }
+
+                $url =  'href="' . get_the_permalink( $id ) . '"';
+
+                if( in_array( 'caregiver', $user_roles ) || !is_user_logged_in() ) {
+                    if( $user_status != 'active' || $release_date > $current_date ) {
+                        $url =  '';
+                        $class .= ' card--paused';
+                    }
+                }
+
+
+                $returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
                     ' . $postImage . '
-                </div>
-			</a>';
-		}
-	}
+                    <h2 class="card__title card__title--courses">'.$title.'</h2>
+                    <div class="card__content card__content--courses">
+                        <h3 class="card__time card__time--courses"> Released ' . date_format($release_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt( $id ) . '</p>
+                    </div>
+                </a>';
+                // var_dump($release_dates);
+            }
+        }
 
 	$returnCode .= '</div>';
 
@@ -313,7 +326,7 @@ function asu_delete_user_with_entry( $entry_id ) {
         if ( isset( $entry->metas[ $field_id ] ) && $entry->metas[ $field_id ] ) {
             $user_id = $entry->metas[ $field_id ];
             $user = new WP_User( $user_id );
-            if ( ! in_array( 'administrator', (array) $user->roles ) ) {
+            if ( ! in_array( 'administrator', $user->roles ) ) {
                 wp_delete_user( $user->ID );
             }
         }

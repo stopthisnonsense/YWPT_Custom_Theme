@@ -24,11 +24,15 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 .grid--courses {
 	grid-template-columns: var(--grid-template-columns);
-	gap: 1rem;
+	gap: 1.5rem;
 }
 
 .card {
 	position: relative;
+}
+
+.card .card__content {
+	padding: 1rem;
 }
 
 .card--courses {
@@ -37,6 +41,10 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 	align-items: flex-start;
 	flex-direction: column;
 	aspect-ratio: 1/1;
+	--background-color: rgba(250, 250, 250, 0.5);
+	--font-color: #191919;
+	padding: 1rem;
+	transition: all 0.5s cubic-bezier(0.19, 1, 0.19, 1);
 }
 
 .card--paused {
@@ -53,8 +61,29 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 }
 
 .card--courses .card__title {
-	background-color: rgba(250, 250, 250, 0.5);
+	background-color: var(--background-color);
 	display: inline-block;
 	padding: 1rem;
-	color: #191919;
+	color: var(--font-color);
+}
+.card--courses .card__time {
+	color: var(--font-color);
+}
+
+.card--courses .card__content {
+	background-color: var(--background-color);
+	width: 100%;
+	overflow: hidden;
+	max-height: 0;
+	opacity: 0;
+	transition: all 0.5s cubic-bezier(0.19, 1, 0.19, 1);
+}
+
+.card--courses:is(:hover, :focus) {
+	transform: scale(1.1);
+}
+
+.card--courses:is(:hover, :focus) .card__content {
+	max-height: 400px;
+	opacity: 1;
 }
