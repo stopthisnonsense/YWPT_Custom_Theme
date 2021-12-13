@@ -13,15 +13,15 @@ add_action( 'wp_enqueue_scripts', 'divichild_enqueue_scripts' );
 //Disable admin bar for non admins.
 
 
-function ywpt_admin_bar() {
+function ds_admin_bar() {
     if (!current_user_can('administrator') && !is_admin()) {
         show_admin_bar(false);
     }
 }
 
-add_action('after_setup_theme', 'ywpt_admin_bar');
+add_action('after_setup_theme', 'ds_admin_bar');
 
-function ywpt_login_redirect( $redirect_to, $request, $user ) {
+function ds_login_redirect( $redirect_to, $request, $user ) {
     //is there a user to check?
     if ( isset( $user->roles ) && is_array( $user->roles ) ) {
         //check for admins
@@ -29,7 +29,7 @@ function ywpt_login_redirect( $redirect_to, $request, $user ) {
             // redirect them to the default place
             return $redirect_to;
         }
-        if( function_exists( 'ywpt_site_options' ) ) {
+        if( function_exists( 'ds_site_options' ) ) {
             $dashboard_object = get_field( 'dashboard', 'options' );
             if( isset( $dashboard_object ) ) {
                 return get_the_permalink( $dashboard_object );
@@ -41,12 +41,12 @@ function ywpt_login_redirect( $redirect_to, $request, $user ) {
     return $redirect_to;
 }
 
-add_filter( 'login_redirect', 'ywpt_login_redirect', 10, 3 );
+add_filter( 'login_redirect', 'ds_login_redirect', 10, 3 );
 
 
 // add option to register user.
 if( function_exists('acf_add_options_page') ) {
-    // function ywpt_register_users() {
+    // function ds_register_users() {
     //     acf_add_options_page(
     //         [
     //             'page_title' 	=> 'Register User',
@@ -58,9 +58,9 @@ if( function_exists('acf_add_options_page') ) {
     //         ]
     //     );
     // }
-    // add_action('acf/init', 'ywpt_register_users');
+    // add_action('acf/init', 'ds_register_users');
 
-    function ywpt_site_options() {
+    function ds_site_options() {
         acf_add_options_page(
             [
                 'page_title' 	=> 'Site Options',
@@ -72,9 +72,9 @@ if( function_exists('acf_add_options_page') ) {
             ]
         );
     }
-    add_action('acf/init', 'ywpt_site_options');
+    add_action('acf/init', 'ds_site_options');
 
-    function ywpt_send_email() {
+    function ds_send_email() {
         // $screen = get_current_screen();
         // if( strpos($screen->ID, 'register-user' == true) ) {
 
@@ -123,11 +123,11 @@ if( function_exists('acf_add_options_page') ) {
         }
 
         // }
-        // add_action('acf/save_post', 'ywpt_send_email', 15);
+        // add_action('acf/save_post', 'ds_send_email', 15);
 
-        add_action( 'show_user_profile', 'ywpt_user_profile_fields' );
-        add_action( 'edit_user_profile', 'ywpt_user_profile_fields' );
-        function ywpt_user_profile_fields() {
+        add_action( 'show_user_profile', 'ds_user_profile_fields' );
+        add_action( 'edit_user_profile', 'ds_user_profile_fields' );
+        function ds_user_profile_fields() {
             if( !isset( $_GET['user_id'] ) ) {
                 return;
             }
@@ -170,7 +170,7 @@ if( function_exists('acf_add_options_page') ) {
                 background-size: cover;
             }
             #login h1 a {
-                background-image: url(<?= get_bloginfo( 'url' ); ?>/wp-content/uploads/2021/11/Reaching-Out-Logo_large_400dpi.jpg);
+                background-image: url(<?= get_bloginfo( 'url' ); ?>/wp-content/uploads/2021/11/Reaching-Out-Logo_web.png);
                 /* background-image: url(<?php echo esc_url( wp_get_attachment_url( get_theme_mod( 'custom_logo' ) ) ); ?>); */
                 background-size: contain;
                 height: 100px;
@@ -180,8 +180,8 @@ if( function_exists('acf_add_options_page') ) {
     <?php }
     add_action( 'login_enqueue_scripts', 'my_login_logo' );
 
-    function ywpt_courses_cpt() {
-        $ywpt_course_args = [
+    function ds_courses_cpt() {
+        $ds_course_args = [
             'label' => 'Courses',
             'description' => '',
             'public' => true,
@@ -192,17 +192,17 @@ if( function_exists('acf_add_options_page') ) {
             'can_export' => false,
             'delete_with_user' => false,
         ];
-        register_post_type( 'course', $ywpt_course_args );
+        register_post_type( 'course', $ds_course_args );
     }
-    function ywpt_flush_rewrite() {
-        ywpt_courses_cpt();
+    function ds_flush_rewrite() {
+        ds_courses_cpt();
         flush_rewrite_rules();
     }
-    // add_action( 'after_switch_theme', 'ywpt_flush_rewrite' );
-    // add_action( 'init', 'ywpt_courses_cpt' );
+    // add_action( 'after_switch_theme', 'ds_flush_rewrite' );
+    // add_action( 'init', 'ds_courses_cpt' );
 
 
-    function ywpt_restrict_caregivers( $query ) {
+    function ds_restrict_caregivers( $query ) {
         if( !is_admin() && $query->is_main_query() && is_archive( 'course' ) ) {
             $current_user = get_current_user_id();
             // We want the current user
@@ -232,7 +232,7 @@ if( function_exists('acf_add_options_page') ) {
         }
 
     }
-    // add_action( 'pre_get_posts', 'ywpt_restrict_caregivers', 11 );
+    // add_action( 'pre_get_posts', 'ds_restrict_caregivers', 11 );
 
 
     function course_list_shortcode()
