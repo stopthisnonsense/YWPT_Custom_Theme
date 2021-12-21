@@ -289,23 +289,32 @@ if( function_exists('acf_add_options_page') ) {
                 }
 
                 $url =  'href="' . get_the_permalink( $id ) . '"';
-
+                $releases = 'Released';
                 if( in_array( 'caregiver', $user_roles ) || !is_user_logged_in() ) {
                     if( $user_status != 'active' || $release_date > $current_date ) {
                         $url =  '';
                         $class .= ' card--paused';
+
                     }
                 }
+                if( $release_date > $current_date ) {
+                    $releases = 'Releases';
+                }
 
+                if( $prev_course && $id != $prev_course->ID ) {
+                    $previous_course_template = '<p> Previous Course: ' . get_the_title($prev_course->ID) . ' </p>';
+                    $previous_course_date = $prev_course->ID;
+                    // var_dump($previous_course_date);
+                }
 
                 $returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
                     ' . $postImage . '
                     <h2 class="card__title card__title--courses">'.$title.'</h2>
                     <div class="card__content card__content--courses">
-                        <h3 class="card__time card__time--courses"> Released ' . date_format($release_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt( $id ) . '</p>
+                        <h3 class="card__time card__time--courses"> ' . $releases .' ' . date_format($release_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt( $id ) . '</p>' . $previous_course_template .  '
                     </div>
                 </a>';
-                // var_dump($release_dates);
+                unset($previous_course_template);
             }
         }
 
@@ -328,6 +337,23 @@ function asu_delete_user_with_entry( $entry_id ) {
             $user = new WP_User( $user_id );
             if ( ! in_array( 'administrator', $user->roles ) ) {
                 wp_delete_user( $user->ID );
+            }
+        }
+    }
+}
+
+add_action('frm_after_update_entry', 'update_user_role', 100, 2);
+add_action('frm_after_create_entry', 'update_user_role', 100, 2);
+function update_user_role($entry_id, $form_id){
+    if ( $form_id == 3 ) {
+
+        $userid = $_POST['item_meta'][18];// 1775 is the ID of the userID field
+        $role = $_POST['item_meta'][25];// 1134 is the ID of the role dropdown
+
+        if ( $userid ) {
+            $user = get_userdata( $userid );
+            if ( $user && ! $user->has_cap('administrator') ) {
+                $user->set_role( $role );
             }
         }
     }
