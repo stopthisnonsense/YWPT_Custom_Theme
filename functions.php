@@ -235,6 +235,11 @@ if( function_exists('acf_add_options_page') ) {
     // add_action( 'pre_get_posts', 'ds_restrict_caregivers', 11 );
 
 
+    /**
+     *  @param INT $interval the number of days
+     *  @param INT $current_user the current user ID
+     *  @return object the interval date.
+    **/
     function interval_date( $interval, $current_user ) {
         if( empty($interval) || $interval === false ) {
             $interval = 0;
@@ -389,8 +394,8 @@ add_action('frm_after_create_entry', 'update_user_role', 100, 2);
 function update_user_role($entry_id, $form_id){
     if ( $form_id == 3 ) {
 
-        $userid = $_POST['item_meta'][18];// 1775 is the ID of the userID field
-        $role = $_POST['item_meta'][25];// 1134 is the ID of the role dropdown
+        $userid = $_POST['item_meta'][18];
+        $role = $_POST['item_meta'][25];
 
         if ( $userid ) {
             $user = get_userdata( $userid );
