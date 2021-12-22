@@ -235,6 +235,26 @@ if( function_exists('acf_add_options_page') ) {
     // add_action( 'pre_get_posts', 'ds_restrict_caregivers', 11 );
 
 
+    function interval_date( $interval, $current_user ) {
+        if( empty($interval) || $interval === false ) {
+            $interval = 0;
+        }
+        if( empty( $current_user ) ) {
+            $current_user = get_current_user_id();
+        }
+
+        $current_user_meta = get_userdata( $current_user );
+        // var_dump( $current_user_meta );
+        $user_status = get_field( 'status', 'user_' . $current_user );
+        $user_roles = $current_user_meta->roles;
+        $register_date = date_create($current_user_meta->register_date);
+
+        $interval =  date_interval_create_from_date_string("$interval days");
+        $interv_date = $register_date;
+        $interv_date = date_add($interv_date , $interval);
+        return $interv_date;
+    }
+
     function course_list_shortcode()
 {
 	$params = array(
@@ -251,6 +271,7 @@ if( function_exists('acf_add_options_page') ) {
     $user_status = get_field( 'status', 'user_' . $current_user );
     $user_roles = $current_user_meta->roles;
     $register_date = date_create($current_user_meta->register_date);
+    var_dump( $register_date );
 
     $returnCode = '<div class="grid grid--courses">';
 
@@ -259,27 +280,37 @@ if( function_exists('acf_add_options_page') ) {
             $release_dates = [];
             while ($courses->fetch())
             {
+
                 $id = $courses->field('ID');
                 $class = 'card card--courses';
                 $class = esc_attr( implode( ' ', get_post_class( $class, $id ) ) );
                 $title = $courses->display('post_title');
                 $embedCode = $courses->display('embed_code');
                 $interval = $courses->display('unlock_interval');
-                $interval =  date_interval_create_from_date_string($interval . ' days');
-                $interv_date = $register_date;
-                $interv_date = date_add($interv_date , $interval);
+
+
+                $interv_date = interval_date( $interval, $current_user );
+                // if( empty($interv_date) ) {
+                //     var_dump( $interv_date );
+                // }
                 $prev_course = $courses->field('previous_course');
                 $postImage = '';
                 $content = get_the_excerpt($id);
-                $release_date = $current_date;
-
-                if( !empty( $courses->field( 'release_date' ) ) ) {
-                    $release_date = date_create( $courses->field( 'release_date' ) );
-                } else {
+                $release_date = date_create( $courses->field( 'release_date' ) );
+                if( empty( $courses->field( 'release_date' ) ) ) {
                     $release_date = $interv_date;
                 }
-                $release_dates[] = $release_date;
 
+                $course_data[] = [
+                    'id' => $id,
+                    'interval_date' => $interv_date,
+                     'release_date' => $release_date ];
+                $release_dates[] = [
+                    'id' => $id,
+                    'release_date' => $release_date
+                ];
+                // var_dump( $release_dates );
+                // var_dump( $course_data );
                 if( has_post_thumbnail( $id ) ) {
                     $postImage = get_the_post_thumbnail( $id, 'large', [
                         'class' => 'card__image card__image--courses',
@@ -291,30 +322,41 @@ if( function_exists('acf_add_options_page') ) {
                 $url =  'href="' . get_the_permalink( $id ) . '"';
                 $releases = 'Released';
                 if( in_array( 'caregiver', $user_roles ) || !is_user_logged_in() ) {
-                    if( $user_status != 'active' || $release_date > $current_date ) {
+                    if( $user_status != 'active' || $release_date > $current_date || $interv_date > $current_date ) {
                         $url =  '';
                         $class .= ' card--paused';
 
                     }
                 }
-                if( $release_date > $current_date ) {
+                if( $release_date > $current_date || $interv_date > $current_date ) {
                     $releases = 'Releases';
                 }
+                $course_date = $release_date;
+                if( $interv_date > $release_date ) {
+                    $course_date = $interv_date;
+                }
+                $previous_course_template = '';
+                // var_dump( $prev_course );
+                if( $prev_course && $id != $prev_course['ID'] ) {
+                    $previous_course_template = '<p> Previous Course: ' . get_the_title($prev_course['ID']) . ' </p>';
+                    $previous_course_data = pods( 'course', $prev_course['ID'] );
 
-                if( $prev_course && $id != $prev_course->ID ) {
-                    $previous_course_template = '<p> Previous Course: ' . get_the_title($prev_course->ID) . ' </p>';
-                    $previous_course_date = $prev_course->ID;
-                    // var_dump($previous_course_date);
+                    $previous_course_data = [
+                        'ID' => $prev_course['ID'],
+                        'release_date' => $previous_course_data->field('release_date'),
+                        'interval_date' => $courses->field('unlock_interval'),
+                    ];
+                    var_dump($previous_course_data);
                 }
 
                 $returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
                     ' . $postImage . '
                     <h2 class="card__title card__title--courses">'.$title.'</h2>
                     <div class="card__content card__content--courses">
-                        <h3 class="card__time card__time--courses"> ' . $releases .' ' . date_format($release_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt( $id ) . '</p>' . $previous_course_template .  '
+                        <h3 class="card__time card__time--courses"> ' . $releases .' ' . date_format($course_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt( $id ) . '</p>' . $previous_course_template .  '
                     </div>
                 </a>';
-                unset($previous_course_template);
+                // unset($previous_course_template);
             }
         }
 
