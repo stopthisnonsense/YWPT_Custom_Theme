@@ -351,7 +351,7 @@ if( function_exists('acf_add_options_page') ) {
                         'release_date' => $previous_course_data->field('release_date'),
                         'interval_date' => $courses->field('unlock_interval'),
                     ];
-                    var_dump($previous_course_data);
+                    // var_dump($previous_course_data);
                 }
 
                 $returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
@@ -405,3 +405,22 @@ function update_user_role($entry_id, $form_id){
         }
     }
 }
+
+function activate_caregiver() {
+    if( is_user_logged_in() ) {
+        $current_user = wp_get_current_user();
+        // var_dump( $current_user );
+        $user_status = get_field( 'status', 'user_' . $current_user->ID );
+        // var_dump( $user_status );
+        if( !$current_user->has_cap( 'administrator' ) && $user_status == 'pending' ) {
+
+        ?>
+        <form id='activate_account' method='post' action='<?php echo get_stylesheet_directory_uri(); ?>/includes/activate_caregiver.php'>
+            <input class='et_pb_button' type='submit' name='activate_caregiver' value='Activate Account'>
+        </form>
+    <?php
+        }
+    }
+}
+
+add_shortcode( 'activate_caregiver', 'activate_caregiver' );
