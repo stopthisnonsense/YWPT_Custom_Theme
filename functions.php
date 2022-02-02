@@ -261,116 +261,191 @@ if( function_exists('acf_add_options_page') ) {
     }
 
     function course_list_shortcode()
-{
-	$params = array(
-        'limit' => -1,
-        'orderby' => 'ASC'
-    );
+    {
+        $params = array(
+            'limit' => -1
+        );
 
-    $courses = pods('course', $params);
+        $courses = pods('course', $params);
 
-    $current_date = date_create(date('Ymd'));
-    $current_user = get_current_user_id();
-    $current_user_meta = get_userdata( $current_user );
-    // var_dump( $current_user_meta );
-    $user_status = get_field( 'status', 'user_' . $current_user );
-    $user_roles = $current_user_meta->roles;
-    $register_date = date_create($current_user_meta->register_date);
-    var_dump( $register_date );
+        $current_date = date_create(date('Ymd'));
 
-    $returnCode = '<div class="grid grid--courses">';
+        $current_user = get_current_user_id();
+        $current_user_meta = get_userdata( $current_user );
+        // var_dump( $current_user_meta );
+        $user_status = get_field( 'status', 'user_' . $current_user );
+        $user_roles = $current_user_meta->roles;
+        $register_date = date_create($current_user_meta->register_date);
+
+        $returnCode = '<div class="grid grid--courses">';
 
         if ($courses->total() > 0)
         {
+            //First grab the existing list of all the courses, leave them in ther natural order and calculate intervals
+            //(Installed Post Type Order so client can reorder things and Admin Columns to give them more info on their posts)
+            //We need to calculate these dates and put them in an array before we use them
+            $i = 0;
+            $intervalDateInfo = array();
+            while ($courses->fetch())
+            {
+                $intervalValue = $courses->display('unlock_interval');
+
+                if($i = 0)
+                {
+                    //TODO: need to add the date from when the user was create
+                    $date = new DateTime();
+
+                    if($intervalValue > 0)
+                    {
+                        $date->modify('+'.$intervalValue.' day');
+                    }
+
+                    $calculatedDate = $date->format('Y-m-d');
+                    $postId = $courses->field('ID');
+
+                    $intervalDateInfo[] = array('ID' => $postId, 'releaseDate' => $calculatedDate);
+                }
+                else
+                {
+                    $previousDate = $intervalDateInfo[$i - 1]->releaseDate;
+                    $date = new DateTime($previousDate);
+
+                    if($intervalValue > 0)
+                    {
+                        $date->modify('+'.$intervalValue.' day');
+                    }
+
+                    $calculatedDate = $date->format('Y-m-d');
+                    $postId = $courses->field('id');
+
+                    $intervalDateInfo[] = array('ID' => $postId, 'releaseDate' => $calculatedDate);
+                }
+            }
+
+
+
             $release_dates = [];
             while ($courses->fetch())
             {
-
                 $id = $courses->field('ID');
                 $class = 'card card--courses';
-                $class = esc_attr( implode( ' ', get_post_class( $class, $id ) ) );
+                $class = esc_attr(implode(' ', get_post_class($class, $id)));
                 $title = $courses->display('post_title');
                 $embedCode = $courses->display('embed_code');
-                $interval = $courses->display('unlock_interval');
-
-
-                $interv_date = interval_date( $interval, $current_user );
-                // if( empty($interv_date) ) {
-                //     var_dump( $interv_date );
-                // }
-                $prev_course = $courses->field('previous_course');
+                $interval = $courses->display('unlock_interval');//Probably don't need this
+                $interval =  date_interval_create_from_date_string($interval . ' days');//Probably don't need this
+                $interv_date = $register_date;//Probably don't need this
+                $interv_date = date_add($interv_date , $interval);//Probably don't need this
+                $prev_course = $courses->field('previous_course');//We can get rid of this since we're going to remove it
                 $postImage = '';
                 $content = get_the_excerpt($id);
-                $release_date = date_create( $courses->field( 'release_date' ) );
-                if( empty( $courses->field( 'release_date' ) ) ) {
+
+                $release_date = ($courses->field('release_date') ? date_create($courses->field('release_date')) : $current_date);
+                //$release_date = $current_date; //I dont' think this is needed yet
+
+
+                $paused = false;
+                //Need to add code here to set the paused value based on the user
+                if($pauseValueFromUserThatSaysItsPaused)
+                {
+                    $paused = true;
+                }
+
+                //Step 1 - Need to calculate the current item
+                $active = false; //Setting things to not be active as a default
+
+                //Step 2 - Check if the course released or not
+                if($release_date >= $current_date && !$paused)
+                {
+                    //Step 3 - Checking if the interval is set to 0 or nothing. If so, just open the course
+                    if($interval == 0 || $interval == "")
+                    {
+                        $active = true;
+                    }
+
+                    //Step 4 - Intervals... Instead of using a prvious course, let's find the current item in the intervalDateInfo array and use that date that was already calculated
+                    $dateFound = null;
+                    foreach($intervalDateInfo as $item)//find the current course
+                    {
+                        if($item->ID == $id)
+                        {
+                            $dateFound = $item;
+                            break;
+                        }
+                    }
+
+                    if($dateFound && $dateFound->releaseDate >= $current_date)
+                    {
+                        $active = true;
+                    }
+                }
+
+
+                //Step 5... now all you need to do is to use true or false on the individual items to allow access or not (this should cover paused also)
+
+
+                //Probably don't need this any more
+                /*if(!empty($courses->field('release_date')))
+                {
+                    $release_date = date_create($courses->field('release_date'));
+                }
+                else
+                {
                     $release_date = $interv_date;
                 }
 
-                $course_data[] = [
-                    'id' => $id,
-                    'interval_date' => $interv_date,
-                     'release_date' => $release_date ];
-                $release_dates[] = [
-                    'id' => $id,
-                    'release_date' => $release_date
-                ];
-                // var_dump( $release_dates );
-                // var_dump( $course_data );
-                if( has_post_thumbnail( $id ) ) {
-                    $postImage = get_the_post_thumbnail( $id, 'large', [
+                $release_dates[] = $release_date;*/
+
+                if(has_post_thumbnail($id))
+                {
+                    $postImage = get_the_post_thumbnail($id, 'large', [
                         'class' => 'card__image card__image--courses',
                         'height' => '',
                         'width' => '',
-                    ] );
+                    ]);
                 }
 
                 $url =  'href="' . get_the_permalink( $id ) . '"';
                 $releases = 'Released';
-                if( in_array( 'caregiver', $user_roles ) || !is_user_logged_in() ) {
-                    if( $user_status != 'active' || $release_date > $current_date || $interv_date > $current_date ) {
+
+                if(in_array('caregiver', $user_roles) || !is_user_logged_in())
+                {
+                    if($user_status != 'active' || $release_date > $current_date)
+                    {
                         $url =  '';
                         $class .= ' card--paused';
-
                     }
                 }
-                if( $release_date > $current_date || $interv_date > $current_date ) {
+
+                if($release_date > $current_date)
+                {
                     $releases = 'Releases';
                 }
-                $course_date = $release_date;
-                if( $interv_date > $release_date ) {
-                    $course_date = $interv_date;
-                }
-                $previous_course_template = '';
-                // var_dump( $prev_course );
-                if( $prev_course && $id != $prev_course['ID'] ) {
-                    $previous_course_template = '<p> Previous Course: ' . get_the_title($prev_course['ID']) . ' </p>';
-                    $previous_course_data = pods( 'course', $prev_course['ID'] );
 
-                    $previous_course_data = [
-                        'ID' => $prev_course['ID'],
-                        'release_date' => $previous_course_data->field('release_date'),
-                        'interval_date' => $courses->field('unlock_interval'),
-                    ];
-                    // var_dump($previous_course_data);
+                if($prev_course && $id != $prev_course->ID)
+                {
+                    $previous_course_template = '<p> Previous Course: ' . get_the_title($prev_course->ID) . ' </p>';
+                    $previous_course_date = $prev_course->ID;
+                    // var_dump($previous_course_date);
                 }
 
                 $returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
-                    ' . $postImage . '
-                    <h2 class="card__title card__title--courses">'.$title.'</h2>
-                    <div class="card__content card__content--courses">
-                        <h3 class="card__time card__time--courses"> ' . $releases .' ' . date_format($course_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt( $id ) . '</p>' . $previous_course_template .  '
-                    </div>
-                </a>';
-                // unset($previous_course_template);
+                        ' . $postImage . '
+                        <h2 class="card__title card__title--courses">'.$title.'</h2>
+                        <div class="card__content card__content--courses">
+                            <h3 class="card__time card__time--courses"> ' . $releases .' ' . date_format($release_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt($id) . '</p>' . $previous_course_template .  '
+                        </div>
+                    </a>';
+                unset($previous_course_template);
             }
         }
 
-	$returnCode .= '</div>';
+        $returnCode .= '</div>';
 
-	return $returnCode;
-}
+        return $returnCode;
+    }
 
-add_shortcode('course_list', 'course_list_shortcode');
+    add_shortcode('course_list', 'course_list_shortcode');
 
 add_action('frm_before_destroy_entry', 'asu_delete_user_with_entry');
 
