@@ -413,14 +413,32 @@ function activate_caregiver() {
         $user_status = get_field( 'status', 'user_' . $current_user->ID );
         // var_dump( $user_status );
         if( !$current_user->has_cap( 'administrator' ) && $user_status == 'pending' ) {
-
+            // if( $current_user ) {
         ?>
-        <form id='activate_account' method='post' action='<?php echo get_stylesheet_directory_uri(); ?>/includes/activate_caregiver.php'>
-            <input class='et_pb_button' type='submit' name='activate_caregiver' value='Activate Account'>
+        <h2>New Caregiver? Activate Your account!</h2>
+        <form id='activate_account' method='post' action='<?php echo esc_url( admin_url('admin-post.php') ); ?>'>
+            <input type='hidden' name='action' value='process_activate_caregiver'>
+            <input class='et_pb_button' type='submit' id='activate_caregiver' name='activate_caregiver' value='Activate Account'>
         </form>
     <?php
         }
     }
 }
-
 add_shortcode( 'activate_caregiver', 'activate_caregiver' );
+
+function process_activate_caregiver() {
+    $current_user = wp_get_current_user();
+    // var_dump( $current_user );
+    $user_status = get_field( 'status', 'user_' . $current_user->ID );
+    if( !$current_user->has_cap( 'administrator' ) && $user_status == 'pending' && is_user_logged_in() ) {
+        if( !isset($user_status) && in_array( 'caregiver', $current_user->roles ) ) {
+            update_field( 'status', 'active', 'user_' . $current_user->ID);
+        }
+        update_field( 'status', 'active', 'user_' . $current_user->ID);
+    }
+    $referer = $_SERVER['HTTP_REFERER'];
+    header("Location: $referer");
+}
+
+add_action( 'admin_post_nopriv_process_activate_caregiver', 'process_activate_caregiver' );
+add_action( 'admin_post_process_activate_caregiver', 'process_activate_caregiver' );
