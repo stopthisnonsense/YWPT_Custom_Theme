@@ -262,6 +262,16 @@ if( function_exists('acf_add_options_page') ) {
 
     function course_list_shortcode()
     {
+        $current_user = get_current_user_id();
+        $current_user_meta = get_userdata( $current_user );
+        // var_dump( $current_user_meta );
+        $user_status = get_field( 'status', 'user_' . $current_user );
+        $user_roles = $current_user_meta->roles;
+
+        // I don't think we want non logged in folks to have access.
+        if( !is_user_logged_in() ) {
+            return;
+        }
         $params = array(
             'limit' => -1
         );
@@ -270,11 +280,7 @@ if( function_exists('acf_add_options_page') ) {
 
         $current_date = date_create(date('Ymd'));
 
-        $current_user = get_current_user_id();
-        $current_user_meta = get_userdata( $current_user );
-        // var_dump( $current_user_meta );
-        $user_status = get_field( 'status', 'user_' . $current_user );
-        $user_roles = $current_user_meta->roles;
+
         $register_date = date_create($current_user_meta->register_date);
 
         $returnCode = '<div class="grid grid--courses">';
@@ -284,16 +290,17 @@ if( function_exists('acf_add_options_page') ) {
             //First grab the existing list of all the courses, leave them in ther natural order and calculate intervals
             //(Installed Post Type Order so client can reorder things and Admin Columns to give them more info on their posts)
             //We need to calculate these dates and put them in an array before we use them
-            $i = 0;
             $intervalDateInfo = array();
             while ($courses->fetch())
             {
                 $intervalValue = $courses->display('unlock_interval');
-
-                if($i = 0)
+                if( !isset( $i ) ) {
+                    $i = 0;
+                }
+                if($i == 0)
                 {
                     //TODO: need to add the date from when the user was create
-                    $date = new DateTime();
+                    $date = $register_date;
 
                     if($intervalValue > 0)
                     {
@@ -304,12 +311,17 @@ if( function_exists('acf_add_options_page') ) {
                     $postId = $courses->field('ID');
 
                     $intervalDateInfo[] = array('ID' => $postId, 'releaseDate' => $calculatedDate);
+
                 }
                 else
                 {
-                    $previousDate = $intervalDateInfo[$i - 1]->releaseDate;
-                    $date = new DateTime($previousDate);
-
+                    $calcOffset = $i - 1;
+                    // var_dump("intervalDateInfo is $intervalDateInfo");
+                    // var_dump($intervalDateInfo[$calcOffset]['releaseDate']);
+                    $previousDate = $intervalDateInfo[$calcOffset]['releaseDate'];
+                    // var_dump( $previousDate );
+                    $date = DateTime::createFromFormat('!Y-m-d', $previousDate);
+                    // var_dump( $date );
                     if($intervalValue > 0)
                     {
                         $date->modify('+'.$intervalValue.' day');
@@ -318,12 +330,14 @@ if( function_exists('acf_add_options_page') ) {
                     $calculatedDate = $date->format('Y-m-d');
                     $postId = $courses->field('id');
 
-                    $intervalDateInfo[] = array('ID' => $postId, 'releaseDate' => $calculatedDate);
+                    $intervalDateInfo[] = array('ID' => $postId, 'releaseDate' => $calculatedDate, 'previousCourse' => $intervalDateInfo[$calcOffset]['ID'] );
                 }
+                $i++;
             }
+            // var_dump( $intervalDateInfo );
 
-
-
+            //reset the interval and rerun the loop
+            $courses->reset();
             $release_dates = [];
             while ($courses->fetch())
             {
@@ -332,11 +346,31 @@ if( function_exists('acf_add_options_page') ) {
                 $class = esc_attr(implode(' ', get_post_class($class, $id)));
                 $title = $courses->display('post_title');
                 $embedCode = $courses->display('embed_code');
-                $interval = $courses->display('unlock_interval');//Probably don't need this
-                $interval =  date_interval_create_from_date_string($interval . ' days');//Probably don't need this
-                $interv_date = $register_date;//Probably don't need this
-                $interv_date = date_add($interv_date , $interval);//Probably don't need this
-                $prev_course = $courses->field('previous_course');//We can get rid of this since we're going to remove it
+                // var_dump($intervalDateInfo);
+                $prev_course = null;
+                foreach ($intervalDateInfo as $item)
+                {
+
+                    if( $item['ID'] == $id && isset($item['previousCourse']) ) {
+                        $prev_course = $item['previousCourse'];
+                        break 1;
+                    }
+                }
+                // Find the date of the item
+                foreach ($intervalDateInfo as $item)
+                {
+                    $dateFound = null;
+                    if($item['ID'] == $id)
+                        {
+                            $dateFound = $item['releaseDate'];
+                            break;
+                        }
+                }
+                // $interval = $courses->display('unlock_interval');//Probably don't need this
+                // $interval =  date_interval_create_from_date_string($interval . ' days');//Probably don't need this
+                // $interv_date = $register_date;//Probably don't need this
+                // $interv_date = date_add($interv_date , $interval);//Probably don't need this
+                // $prev_course = $courses->field('previous_course');//We can get rid of this since we're going to remove it
                 $postImage = '';
                 $content = get_the_excerpt($id);
 
@@ -344,46 +378,38 @@ if( function_exists('acf_add_options_page') ) {
                 //$release_date = $current_date; //I dont' think this is needed yet
 
 
-                $paused = false;
-                //Need to add code here to set the paused value based on the user
-                if($pauseValueFromUserThatSaysItsPaused)
-                {
-                    $paused = true;
-                }
-
+                // $paused = false;
+                // //Need to add code here to set the paused value based on the user
+                // if($user_status != 'active')
+                // {
+                //     $paused = true;
+                // }
+                //test paused
+                // var_dump($paused);
                 //Step 1 - Need to calculate the current item
-                $active = false; //Setting things to not be active as a default
+                // $active = false; //Setting things to not be active as a default
 
                 //Step 2 - Check if the course released or not
-                if($release_date >= $current_date && !$paused)
-                {
-                    //Step 3 - Checking if the interval is set to 0 or nothing. If so, just open the course
-                    if($interval == 0 || $interval == "")
-                    {
-                        $active = true;
-                    }
+                // if($release_date >= $current_date->format('Y-m-d') && !$paused)
+                // {
+                //     //Step 3 - Checking if the interval is set to 0 or nothing. If so, just open the course
+                //     if($interval == 0 || $interval == "")
+                //     {
+                //         $active = true;
+                //     }
 
-                    //Step 4 - Intervals... Instead of using a prvious course, let's find the current item in the intervalDateInfo array and use that date that was already calculated
-                    $dateFound = null;
-                    foreach($intervalDateInfo as $item)//find the current course
-                    {
-                        if($item->ID == $id)
-                        {
-                            $dateFound = $item;
-                            break;
-                        }
-                    }
-
-                    if($dateFound && $dateFound->releaseDate >= $current_date)
-                    {
-                        $active = true;
-                    }
-                }
+                //     //Step 4 - Intervals... Instead of using a prvious course, let's find the current item in the intervalDateInfo array and use that date that was already calculated
 
 
-                //Step 5... now all you need to do is to use true or false on the individual items to allow access or not (this should cover paused also)
+                //     if($dateFound <= $current_date->format('Y-m-d'))
+                //     {
+                //         $active = true;
+                //     }
+                // }
+                // //Step 5... now all you need to do is to use true or false on the individual items to allow access or not (this should cover paused also)
+                // if( !$paused && $active) {
 
-
+                // }
                 //Probably don't need this any more
                 /*if(!empty($courses->field('release_date')))
                 {
@@ -407,25 +433,26 @@ if( function_exists('acf_add_options_page') ) {
 
                 $url =  'href="' . get_the_permalink( $id ) . '"';
                 $releases = 'Released';
+                if($dateFound > $current_date->format('Y-m-d'))
+                {
+                    $releases = 'Releases';
+                }
 
                 if(in_array('caregiver', $user_roles) || !is_user_logged_in())
                 {
-                    if($user_status != 'active' || $release_date > $current_date)
+                    if($dateFound > $current_date->format('Y-m-d'))
                     {
                         $url =  '';
                         $class .= ' card--paused';
                     }
                 }
 
-                if($release_date > $current_date)
-                {
-                    $releases = 'Releases';
-                }
 
-                if($prev_course && $id != $prev_course->ID)
+                $previous_course_template = null;
+                if($prev_course && $id != $prev_course)
                 {
-                    $previous_course_template = '<p> Previous Course: ' . get_the_title($prev_course->ID) . ' </p>';
-                    $previous_course_date = $prev_course->ID;
+                    $previous_course_template = '<p> Previous Course: ' . get_the_title($prev_course) . ' </p>';
+                    $previous_course_date = $prev_course;
                     // var_dump($previous_course_date);
                 }
 
@@ -433,10 +460,9 @@ if( function_exists('acf_add_options_page') ) {
                         ' . $postImage . '
                         <h2 class="card__title card__title--courses">'.$title.'</h2>
                         <div class="card__content card__content--courses">
-                            <h3 class="card__time card__time--courses"> ' . $releases .' ' . date_format($release_date, 'M d, Y') . '</h3> <p>' . get_the_excerpt($id) . '</p>' . $previous_course_template .  '
+                            <h3 class="card__time card__time--courses"> ' . $releases .' ' . $dateFound . '</h3> <p>' . get_the_excerpt($id) . '</p>' . $previous_course_template .  '
                         </div>
                     </a>';
-                unset($previous_course_template);
             }
         }
 
