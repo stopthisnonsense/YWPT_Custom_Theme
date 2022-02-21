@@ -137,12 +137,19 @@ if( function_exists('acf_add_options_page') ) {
             // }
             $user_meta = get_userdata( $user_id );
             $user_status = get_field( 'status', 'user_' . $user_id );
+            $manual_courses = get_field( 'manual_courses', 'user_' . $user_id);
             // update_field( 'status', 'active', 'user' . $user_id);
             // $user_status = get_field( 'status', 'user' . $user_id );
             if( !isset($user_status) && in_array( 'caregiver', $user_meta->roles ) ) {
                 update_field( 'status', 'pending', 'user_' . $user_id);
                 $user_status = get_field( 'status', 'user_' . $user_id );
             }
+            course_pusher( $user_id );
+            if( !isset( $user_courses ) && in_array( 'caregiver', $user_meta->roles ) ) {
+                course_pusher( $user_id );
+                $user_courses = get_field( 'courses', 'user_' . $user_id);
+            }
+            // course_pusher( $user_id );
             ?>
             <?php if( in_array( 'caregiver', $user_meta->roles) ) { ?>
             <table class="form-table">
@@ -150,6 +157,17 @@ if( function_exists('acf_add_options_page') ) {
                     <tr>
                         <th>Account Status</th>
                         <td><input type="text" readonly value="<?php echo esc_attr( $user_status ); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th>Courses</th>
+                        <?php if( is_array($user_courses) ) {
+                            $user_courses = implode(',',$user_courses);
+                        } ?>
+                        <td><input type="text" readonly value="<?php echo esc_attr( $user_courses ); ?>"></td>
+                    </tr>
+                    <tr>
+                        <th>Release Courses Manually</th>
+                        <td> <input type="text" readonly value="<?php echo esc_attr( $manual_courses ) ?>"></td>
                     </tr>
                 </tbody>
 
@@ -233,7 +251,17 @@ if( function_exists('acf_add_options_page') ) {
 
     }
     // add_action( 'pre_get_posts', 'ds_restrict_caregivers', 11 );
+    function course_pusher( $user_id ) {
+        $current_user = $user_id;
+        $is_user = get_userdata( $user_id );
+        $user_courses_to_push = get_posts( ['fields' => 'ids', 'posts_per_page' => -1, 'post_type' => 'course'] );
+        $user_courses = get_field( 'courses', 'user_' . $current_user);
+        // var_dump( $user_courses_to_push );
+        if( !isset( $user_courses ) ) {
+            update_field( 'courses', $user_courses_to_push , 'user_' . $current_user);
+        }
 
+    }
 
     /**
      *  @param INT $interval the number of days
@@ -267,7 +295,13 @@ if( function_exists('acf_add_options_page') ) {
         // var_dump( $current_user_meta );
         $user_status = get_field( 'status', 'user_' . $current_user );
         $user_roles = $current_user_meta->roles;
-
+        $user_courses = get_field( 'courses', 'user_' . $current_user );
+        $user_manual_release = get_field( 'manual_courses', 'user_' . $current_user );
+        // var_dump( $user_manual_release );
+        if( !isset( $user_courses ) ) {
+            // Double check that all courses are there, set them if not.
+            course_pusher( $current_user );
+        }
         // I don't think we want non logged in folks to have access.
         if( !is_user_logged_in() ) {
             return;
@@ -276,8 +310,19 @@ if( function_exists('acf_add_options_page') ) {
             'limit' => -1
         );
 
-        $courses = pods('course', $params);
 
+        if( $user_manual_release == 1 ) {
+            $user_course_list = $user_courses;
+            if( is_array($user_course_list) ) {
+                $user_course_list = implode(', ', $user_courses);
+            }
+            $params = [
+                'limit' => -1,
+                'where' => "t.id IN ($user_course_list)"
+            ];
+
+        }
+        $courses = pods('course', $params);
         $current_date = date_create(date('Ymd'));
 
 
@@ -438,14 +483,17 @@ if( function_exists('acf_add_options_page') ) {
                     $releases = 'Releases';
                 }
 
-                if(in_array('caregiver', $user_roles) || !is_user_logged_in())
-                {
-                    if($dateFound > $current_date->format('Y-m-d'))
+                if( $user_manual_release == false ) {
+                        if(in_array('caregiver', $user_roles) || !is_user_logged_in())
                     {
-                        $url =  '';
-                        $class .= ' card--paused';
+                        if($dateFound > $current_date->format('Y-m-d'))
+                        {
+                            $url =  '';
+                            $class .= ' card--paused';
+                        }
                     }
                 }
+
 
 
                 $previous_course_template = null;
@@ -455,12 +503,16 @@ if( function_exists('acf_add_options_page') ) {
                     $previous_course_date = $prev_course;
                     // var_dump($previous_course_date);
                 }
-
+                $release_template = '';
+                if( $user_manual_release == false ) {
+                    $release_template = '<h3 class="card__time card__time--courses"> ' . $releases .' ' . $dateFound . '</h3>';
+                }
                 $returnCode .= '<a id="' . $id . '" class="' . $class .'"' . $url . ' >
                         ' . $postImage . '
                         <h2 class="card__title card__title--courses">'.$title.'</h2>
                         <div class="card__content card__content--courses">
-                            <h3 class="card__time card__time--courses"> ' . $releases .' ' . $dateFound . '</h3> <p>' . get_the_excerpt($id) . '</p>' . $previous_course_template .  '
+                            ' . $release_template . '
+                             <p>' . get_the_excerpt($id) . '</p>
                         </div>
                     </a>';
             }
@@ -477,7 +529,7 @@ add_action('frm_before_destroy_entry', 'asu_delete_user_with_entry');
 
 function asu_delete_user_with_entry( $entry_id ) {
     $form_id = 3;// Replace 10 with the ID of your form
-    $field_id = 18;//Replace 25 with the ID of your userID field
+    $field_id = 37;//Replace 25 with the ID of your userID field
     $entry = FrmEntry::getOne( $entry_id, true );
     if ( $entry->form_id == $form_id ) {
         if ( isset( $entry->metas[ $field_id ] ) && $entry->metas[ $field_id ] ) {
@@ -495,14 +547,63 @@ add_action('frm_after_create_entry', 'update_user_role', 100, 2);
 function update_user_role($entry_id, $form_id){
     if ( $form_id == 3 ) {
 
-        $userid = $_POST['item_meta'][18];
+        $userid = $_POST['item_meta'][37];
         $role = $_POST['item_meta'][25];
 
         if ( $userid ) {
             $user = get_userdata( $userid );
+            $user_courses = get_field( 'courses', 'user_' . $userid);
+            if( !isset( $user_courses )) {
+                course_pusher( $userid );
+            }
             if ( $user && ! $user->has_cap('administrator') ) {
                 $user->set_role( $role );
             }
+        }
+    }
+}
+
+// For populating courses
+
+add_filter('frm_setup_new_fields_vars', 'frm_populate_posts', 20, 2);
+add_filter('frm_setup_edit_fields_vars', 'frm_populate_posts', 20, 2); //use this function on edit too
+function frm_populate_posts($values, $field){
+  if($field->id == 36){ //replace with the ID of the field to populate
+    $posts = get_posts( array('post_type' => 'course', 'post_status' => array('publish'), 'numberposts' => 999, 'orderby' => 'menu_order', 'order' => 'ASC'));
+    unset($values['options']);
+    foreach($posts as $p){
+      $values['options'][$p->ID] = $p->post_title;
+    }
+    $values['use_key'] = true; //this will set the field to save the post ID instead of post title
+    unset($values['options'][0]);
+  }
+  return $values;
+}
+
+function asu_course_form_update($post_id) {
+    if( wp_is_post_revision( $post_id ) ) {
+        return;
+    }
+    add_filter('frm_setup_new_fields_vars', 'frm_populate_posts', 20, 2);
+    add_filter('frm_setup_edit_fields_vars', 'frm_populate_posts', 20, 2);
+}
+
+add_action( 'save_post_course', 'asu_course_form_update' );
+
+add_action('frm_after_update_entry', 'update_user_courses', 100, 2);
+add_action('frm_after_create_entry', 'update_user_courses', 100, 2);
+function update_user_courses($entry_id, $form_id){
+    if ( $form_id == 3 ) {
+
+        $userid = $_POST['item_meta'][37];
+        $courses = $_POST['item_meta'][36];
+        $course_release = $_POST['item_meta'][39];
+
+        if ( $userid ) {
+            $user = get_userdata( $userid );
+            // $user_courses = get_field( 'courses', 'user_' . $userid);
+            update_field( 'courses', $courses, 'user_'. $userid );
+            update_field( 'manual_courses', $course_release, 'user_'. $userid );
         }
     }
 }
